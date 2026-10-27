@@ -1,0 +1,518 @@
+KT GAMEBOX 5G TRAFFIC CLASSIFICATION USING MACHINE LEARNING
+===============================================================
+
+PROJECT OBJECTIVE
+-----------------
+The objective of this project is to classify network packets from the KT GameBox 5G traffic dataset into two protocol classes: TCP and UDP. Ten CSV files were merged, analyzed, cleaned, balanced, preprocessed, and used for Machine Learning model training and comparison.
+
+OVERALL WORKFLOW
+----------------
+10 CSV Files
+    |
+    v
+Merge All CSV Files
+    |
+    v
+38,096,046 Packets
+    |
+    v
+Protocol Analysis
+    |
+    v
+TCP + UDP Selection
+    |
+    v
+Balanced Dataset: 1,000,000 Samples
+    |
+    v
+Data Cleaning
+    |
+    v
+Remove No. + Info
+    |
+    v
+Time Preprocessing
+    |
+    v
+Time Leakage Detection
+    |
+    v
+Remove Time-Based Features
+    |
+    v
+One-Hot Encoding
+    |
+    v
+Train-Test Split: 80/20
+    |
+    v
+Standard Scaling
+    |
+    v
+Feature Selection
+    |
+    v
+Model Training
+    |
+    v
+Model Comparison
+    |
+    v
+Confusion Matrix
+    |
+    v
+Best Model: Decision Tree
+
+
+1. CSV FILE MERGING
+-------------------
+The KT GameBox dataset was supplied in 10 CSV files:
+
+KT_GameBox_1.csv
+KT_GameBox_2.csv
+KT_GameBox_3.csv
+KT_GameBox_4.csv
+KT_GameBox_5.csv
+KT_GameBox_6.csv
+KT_GameBox_7.csv
+KT_GameBox_8.csv
+KT_GameBox_9.csv
+KT_GameBox_10.csv
+
+All ten files were merged into:
+
+KT_GameBox_Merged.csv
+
+Total packets after merging:
+38,096,046
+
+Because the files were very large, chunk-based processing was used to avoid memory errors.
+
+
+2. INITIAL DATA STRUCTURE
+-------------------------
+Original columns:
+
+No.
+Time
+Source
+Destination
+Protocol
+Length
+Info
+
+
+3. PROTOCOL ANALYSIS
+--------------------
+The merged dataset contained multiple network protocols.
+
+Observed protocol distribution:
+
+UDP        91.7142%
+TCP         8.1303%
+TLSv1       0.0561%
+SSLv2       0.0560%
+R-GOOSE     0.0201%
+TLSv1.3     0.0199%
+THRIFT      0.0026%
+TLSv1.2     0.0003%
+DNS         0.0003%
+SMPP        0.0001%
+FMTP        0.0001%
+TPKT        approximately 0%
+Q.931       approximately 0%
+CLTP        approximately 0%
+
+UDP was highly dominant, so the original data was strongly imbalanced.
+
+For this project, the two main protocols TCP and UDP were selected for a binary classification task.
+
+
+4. BALANCED DATASET CREATION
+----------------------------
+To reduce class imbalance, equal numbers of TCP and UDP samples were selected.
+
+TCP = 500,000
+UDP = 500,000
+
+Total = 1,000,000 samples
+
+Balanced output file:
+
+KT_GameBox_TCP_UDP_Balanced.csv
+
+Class distribution:
+
+TCP = 50%
+UDP = 50%
+
+
+5. DATA CLEANING
+-----------------
+The balanced dataset was checked for:
+
+- Missing values
+- Duplicate rows
+- Data types
+
+Results:
+
+Missing values = 0
+Duplicate rows = 0
+
+
+6. REMOVING UNNECESSARY / LEAKAGE-PRONE COLUMNS
+------------------------------------------------
+The following columns were removed:
+
+No.
+Info
+
+Reason for removing No.:
+No. is only a packet sequence/identifier and does not represent useful network traffic characteristics.
+
+Reason for removing Info:
+Info contains packet descriptions such as SYN, ACK, Client Hello, and Application Data. These descriptions can directly expose protocol-related information and could create target leakage.
+
+Remaining columns:
+
+Time
+Source
+Destination
+Protocol
+Length
+
+
+7. TIME PREPROCESSING AND LEAKAGE CHECK
+----------------------------------------
+Time was converted into datetime format.
+
+Initially, these time features were created:
+
+hour
+minute
+second
+
+Further analysis showed that time was strongly associated with the protocol. For example:
+
+Hour 15 -> 100% TCP
+Hour 16 -> 100% TCP
+Hour 17 -> 100% TCP
+
+Therefore, hour, minute, and second were removed from the final model to reduce temporal leakage.
+
+
+8. FINAL FEATURES AND TARGET
+----------------------------
+Final raw features:
+
+Source
+Destination
+Length
+
+Target:
+
+Protocol
+
+Target encoding:
+
+UDP -> 0
+TCP -> 1
+
+
+9. TRAIN-TEST SPLIT
+-------------------
+An 80/20 stratified split was used.
+
+Training samples = 800,000
+Testing samples  = 200,000
+
+Training distribution:
+
+TCP = 400,000
+UDP = 400,000
+
+Testing distribution:
+
+TCP = 100,000
+UDP = 100,000
+
+
+10. CATEGORICAL ENCODING
+------------------------
+Source and Destination are categorical IP-address features.
+
+One-Hot Encoding was used instead of treating IP addresses as ordered numerical values.
+
+There were:
+
+8 unique Source values
+8 unique Destination values
+
+Encoding produced:
+
+8 Source features
+8 Destination features
+1 Length feature
+
+Total = 17 features
+
+The encoder was fitted only on training data and then applied to test data to avoid train-test leakage.
+
+
+11. FEATURE SCALING
+-------------------
+StandardScaler was used.
+
+Process:
+
+Fit scaler -> Training data
+Transform -> Training data
+Transform -> Test data
+
+The scaler was fitted only on training data.
+
+
+12. FEATURE SELECTION
+---------------------
+Feature selection was performed using the ANOVA F-test (sklearn f_classif).
+
+Initial features:
+17
+
+Two statistically insignificant features were removed:
+
+Source_10.215.173.2
+Destination_192.0.0.2
+
+Both had p-values greater than 0.05.
+
+Final selected features:
+15
+
+Final selected features:
+
+Length
+Source_10.215.173.1
+Source_183.110.235.46
+Source_183.110.235.47
+Source_183.110.235.71
+Source_192.0.0.2
+Source_211.252.120.14
+Source_211.252.121.67
+Destination_10.215.173.1
+Destination_10.215.173.2
+Destination_183.110.235.46
+Destination_183.110.235.47
+Destination_183.110.235.71
+Destination_211.252.120.14
+Destination_211.252.121.67
+
+Training shape after selection:
+800,000 x 15
+
+Testing shape after selection:
+200,000 x 15
+
+
+13. MODEL TRAINING
+------------------
+The following models were tested:
+
+1. Logistic Regression
+2. Linear SVM
+3. Decision Tree
+4. Random Forest
+
+KNN was attempted, but with 800,000 training samples and 200,000 test samples it was taking too long to execute, so it was skipped from the final comparison.
+
+
+14. MODEL EVALUATION METRICS
+----------------------------
+The models were evaluated using:
+
+Accuracy
+Precision
+Recall
+F1-Score
+
+
+15. MODEL RESULTS
+-----------------
+Logistic Regression:
+Accuracy  = 92.77%
+Precision = 91.48%
+Recall    = 94.32%
+F1 Score  = 92.88%
+
+Linear SVM:
+Accuracy  = 92.76%
+Precision = 91.48%
+Recall    = 94.32%
+F1 Score  = 92.88%
+
+Decision Tree:
+Accuracy  = 99.99%
+Precision = 99.99%
+Recall    = 99.99%
+F1 Score  = 99.99%
+
+Random Forest:
+Accuracy  = 99.99%
+Precision = 99.99%
+Recall    = 99.99%
+F1 Score  = 99.99%
+
+
+16. DECISION TREE CONFUSION MATRIX
+----------------------------------
+Final Decision Tree confusion matrix:
+
+                 Predicted
+                 UDP       TCP
+
+Actual UDP       99,993      7
+Actual TCP           10  99,990
+
+Total test samples = 200,000
+Correct predictions = 199,983
+Incorrect predictions = 17
+
+Exact test accuracy:
+
+199,983 / 200,000 = 99.9915%
+
+
+17. BEST MODEL SELECTION
+------------------------
+Decision Tree was selected as the final model because it achieved the same reported performance as Random Forest while being simpler and easier to interpret.
+
+Best model:
+Decision Tree
+
+Best test accuracy:
+99.9915%
+
+
+18. IMPORTANT LIMITATION
+------------------------
+The 99.99% performance should be interpreted carefully.
+
+During analysis, Source and Destination were found to be highly associated with the protocol. Several IP addresses were associated almost exclusively with TCP traffic.
+
+Therefore, the reported 99.99% represents performance on the prepared held-out test set. It should not automatically be interpreted as 99.99% generalization to completely unseen network environments.
+
+A stronger future evaluation would use session-aware or environment-aware train/test splitting and more general flow-level network traffic features.
+
+
+19. FINAL PROJECT FLOW
+----------------------
+10 CSV Files
+    |
+    v
+Merge
+    |
+    v
+38,096,046 Packets
+    |
+    v
+Protocol Analysis
+    |
+    v
+TCP + UDP Selection
+    |
+    v
+Balanced Dataset
+    |
+    v
+1,000,000 Samples
+    |
+    v
+Data Cleaning
+    |
+    v
+Remove No. + Info
+    |
+    v
+Time Processing
+    |
+    v
+Time Leakage Detection
+    |
+    v
+Remove Time Features
+    |
+    v
+One-Hot Encoding
+    |
+    v
+Train-Test Split (80/20)
+    |
+    v
+Standard Scaling
+    |
+    v
+Feature Selection
+    |
+    v
+Model Training
+    |
+    v
+LR vs Linear SVM vs DT vs RF
+    |
+    v
+Model Comparison
+    |
+    v
+Confusion Matrix
+    |
+    v
+Decision Tree = Best Model
+
+
+20. FINAL CONCLUSION
+--------------------
+This project demonstrates an end-to-end Machine Learning workflow for TCP and UDP traffic classification using KT GameBox 5G traffic data.
+
+The process included:
+
+- Merging 10 large CSV files
+- Analyzing protocol distribution
+- Creating a balanced TCP/UDP dataset
+- Data cleaning
+- Removing unnecessary and leakage-prone columns
+- Time preprocessing and leakage detection
+- One-Hot Encoding
+- Stratified train-test splitting
+- Standard feature scaling
+- ANOVA-based feature selection
+- Training multiple Machine Learning models
+- Comparing model performance
+- Evaluating the best model using a confusion matrix
+
+Final comparison:
+
+Logistic Regression -> 92.77%
+Linear SVM          -> 92.76%
+Decision Tree       -> 99.99%
+Random Forest       -> 99.99%
+
+Decision Tree was selected as the final model for this experimental setup.
+
+
+21. TOOLS AND TECHNOLOGIES
+--------------------------
+Python
+Pandas
+NumPy
+Scikit-learn
+Matplotlib
+Seaborn
+Jupyter Notebook
+VS Code
+
+
+AUTHOR
+------
+Madhumita Khatua
+BCA, Brainware University
